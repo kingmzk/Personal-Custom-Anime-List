@@ -20,6 +20,7 @@ function App() {
   const [filterType, setFilterType] = useState("");
   const [filterScore, setFilterScore] = useState("");
   const [reloadTrigger, setReloadTrigger] = useState(0);
+  const [deleteConfirmItem, setDeleteConfirmItem] = useState(null);
 
   const PAGE_SIZE = 20;
   const totalPages = Math.ceil(totalCount / PAGE_SIZE);
@@ -143,6 +144,31 @@ function App() {
     if (newAnime.category === activeCategory) {
       setItems([newAnime, ...items]);
     }
+  };
+
+  const requestDeleteAnime = (id) => {
+    const item = items.find(a => a.id === id);
+    if (item) setDeleteConfirmItem(item);
+  };
+
+  const confirmDeleteAnime = async () => {
+    if (!deleteConfirmItem) return;
+    try {
+      const response = await fetch(`http://localhost:8000/api/animes/${deleteConfirmItem.id}/`, {
+        method: 'DELETE',
+      });
+      if (response.ok) {
+        setItems(items.filter(item => item.id !== deleteConfirmItem.id));
+        setTotalCount(prev => prev - 1);
+      }
+    } catch (err) {
+      console.error('Failed to delete anime', err);
+    }
+    setDeleteConfirmItem(null);
+  };
+
+  const cancelDeleteAnime = () => {
+    setDeleteConfirmItem(null);
   };
 
   // Generate page numbers for pagination
@@ -329,7 +355,7 @@ function App() {
               </select>
             </div>
             
-            <AnimeGrid items={items} onUpdateCategory={updateCategory} onUpdateRating={updateRating} categories={CATEGORIES} />
+            <AnimeGrid items={items} onUpdateCategory={updateCategory} onUpdateRating={updateRating} onDelete={requestDeleteAnime} categories={CATEGORIES} />
             
             {/* Numbered Pagination */}
             {totalPages > 1 && (
@@ -373,6 +399,29 @@ function App() {
         categories={CATEGORIES}
         onAddSuccess={handleMalAddSuccess}
       />
+
+      {deleteConfirmItem && (
+        <div className="modal-overlay" onClick={cancelDeleteAnime}>
+          <div className="modal-content" onClick={e => e.stopPropagation()} style={{ padding: '2rem', textAlign: 'center', background: '#1f2937', color: 'white', borderRadius: '8px', maxWidth: '400px', width: '100%' }}>
+            <h2 style={{ marginBottom: '1rem' }}>Confirm Deletion</h2>
+            <p style={{ color: '#d1d5db', marginBottom: '2rem' }}>Are you sure you want to remove <strong style={{ color: '#fff' }}>{deleteConfirmItem.title}</strong> from your list?</p>
+            <div style={{ display: 'flex', justifyContent: 'center', gap: '1rem' }}>
+              <button 
+                onClick={cancelDeleteAnime}
+                style={{ padding: '0.75rem 1.5rem', background: '#4b5563', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}
+              >
+                Cancel
+              </button>
+              <button 
+                onClick={confirmDeleteAnime}
+                style={{ padding: '0.75rem 1.5rem', background: '#ef4444', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}
+              >
+                Yes, Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

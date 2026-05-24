@@ -1,6 +1,6 @@
 import { AnimeCard } from './AnimeCard';
 
-export function AnimeGrid({ items, onUpdateCategory, onUpdateRating, categories }) {
+export function AnimeGrid({ items, onUpdateCategory, onUpdateRating, onDelete, categories }) {
   if (!items || items.length === 0) {
     return <div className="empty-state">No anime found in this category.</div>;
   }
@@ -13,6 +13,7 @@ export function AnimeGrid({ items, onUpdateCategory, onUpdateRating, categories 
           item={item} 
           onUpdateCategory={onUpdateCategory}
           onUpdateRating={onUpdateRating}
+          onDelete={onDelete}
           categories={categories}
         />
       ))}

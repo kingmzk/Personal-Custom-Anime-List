@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 
-export function AnimeCard({ item, onUpdateCategory, onUpdateRating, categories }) {
+export function AnimeCard({ item, onUpdateCategory, onUpdateRating, onDelete, categories }) {
   const [ratingOpen, setRatingOpen] = useState(false);
   const [inputVal, setInputVal] = useState('');
   const popoverRef = useRef(null);
@@ -140,17 +140,31 @@ export function AnimeCard({ item, onUpdateCategory, onUpdateRating, categories }
             )}
           </div>
 
-          {/* Category Dropdown */}
-          <select
-            value={item.category}
-            onClick={(e) => e.stopPropagation()}
-            onChange={(e) => { e.stopPropagation(); onUpdateCategory(item.id, e.target.value); }}
-            className="category-select"
-          >
-            {categories && categories.map(cat => (
-              <option key={cat} value={cat}>{cat}</option>
-            ))}
-          </select>
+          <div style={{ display: 'flex', gap: '0.5rem', width: '100%' }}>
+            <select
+              value={item.category}
+              onClick={(e) => e.stopPropagation()}
+              onChange={(e) => { e.stopPropagation(); onUpdateCategory(item.id, e.target.value); }}
+              className="category-select"
+              style={{ flex: 1 }}
+            >
+              {categories && categories.map(cat => (
+                <option key={cat} value={cat}>{cat}</option>
+              ))}
+            </select>
+            
+            <button 
+              className="delete-btn" 
+              onClick={(e) => { e.stopPropagation(); onDelete(item.id); }}
+              title="Remove from list"
+              style={{ padding: '0.5rem', background: '#ef4444', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="3 6 5 6 21 6"></polyline>
+                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+              </svg>
+            </button>
+          </div>
         </div>
       </div>
     </div>
