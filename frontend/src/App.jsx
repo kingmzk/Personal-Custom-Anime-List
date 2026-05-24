@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { AnimeGrid } from './components/AnimeGrid';
 import { AddFromMalModal } from './components/AddFromMalModal';
 
-const CATEGORIES = ['Watching', 'Plan to watch', 'On-Hold', 'Dropped', 'Completed', 'New Anime to Watch Personal', 'Custom 1'];
+const CATEGORIES = ['Watching', 'Plan to watch', 'On-Hold', 'Dropped', 'Completed', 'New Anime to Watch Personal', 'Upcoming Planned Anime'];
 
 function App() {
   const [items, setItems] = useState([]);
