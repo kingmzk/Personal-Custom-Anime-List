@@ -12,26 +12,77 @@ function App() {
   const [totalCount, setTotalCount] = useState(0);
   const [currentPage, setCurrentPage] = useState(1);
   const [uploadStatus, setUploadStatus] = useState(null);
+  const [importProgress, setImportProgress] = useState(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [searchInput, setSearchInput] = useState("");
   const [isMalModalOpen, setIsMalModalOpen] = useState(false);
+  const [sortBy, setSortBy] = useState("-updated_at");
+  const [filterType, setFilterType] = useState("");
+  const [filterScore, setFilterScore] = useState("");
+  const [reloadTrigger, setReloadTrigger] = useState(0);
 
   const PAGE_SIZE = 20;
   const totalPages = Math.ceil(totalCount / PAGE_SIZE);
 
+  // Poll for import status
+  useEffect(() => {
+    let intervalId;
+    const checkStatus = async () => {
+      try {
+        const response = await fetch('http://localhost:8000/api/animes/import_status/');
+        if (response.ok) {
+          const data = await response.json();
+          if (data.status === 'running') {
+            setImportProgress({
+              total: data.total,
+              current: data.current,
+              log: data.log
+            });
+            setUploadStatus(null); // Clear static message while running
+          } else if (data.status === 'done' || data.status === 'error') {
+            if (importProgress) {
+              setImportProgress(null);
+              if (data.status === 'done') {
+                setUploadStatus('Import complete!');
+                setTimeout(() => setUploadStatus(null), 5000);
+                // Trigger reload
+                setReloadTrigger(prev => prev + 1);
+              } else {
+                setUploadStatus('Import failed or encountered an error.');
+                setTimeout(() => setUploadStatus(null), 5000);
+              }
+            }
+          }
+        }
+      } catch (e) {
+        // ignore errors if backend is down
+      }
+    };
+
+    checkStatus();
+    intervalId = setInterval(checkStatus, 1500);
+    return () => clearInterval(intervalId);
+  }, [importProgress]);
+
   // Reset page to 1 when category changes
   useEffect(() => {
     setCurrentPage(1);
-  }, [activeCategory]);
+  }, [activeCategory, sortBy, filterType, filterScore]);
 
   useEffect(() => {
     const loadData = async () => {
       try {
         setLoading(true);
         setError(null);
-        let url = `http://localhost:8000/api/animes/?category=${encodeURIComponent(activeCategory)}&page=${currentPage}`;
+        let url = `http://localhost:8000/api/animes/?category=${encodeURIComponent(activeCategory)}&page=${currentPage}&ordering=${sortBy}`;
         if (searchQuery) {
           url += `&search=${encodeURIComponent(searchQuery)}`;
+        }
+        if (filterType) {
+          url += `&type=${encodeURIComponent(filterType)}`;
+        }
+        if (filterScore) {
+          url += `&min_score=${encodeURIComponent(filterScore)}`;
         }
         
         const response = await fetch(url);
@@ -49,7 +100,7 @@ function App() {
     };
 
     loadData();
-  }, [activeCategory, currentPage, searchQuery]);
+  }, [activeCategory, currentPage, searchQuery, sortBy, filterType, filterScore, reloadTrigger]);
 
   const handleSearch = (e) => {
     e.preventDefault();
@@ -128,8 +179,8 @@ function App() {
       });
       const data = await response.json();
       if (response.ok) {
-        setUploadStatus('Success! ' + data.message);
-        setTimeout(() => setUploadStatus(null), 5000);
+        setUploadStatus('Upload successful. Starting processing...');
+        // The background polling will take over here
       } else {
         setUploadStatus('Error: ' + data.error);
         setTimeout(() => setUploadStatus(null), 5000);
@@ -138,6 +189,9 @@ function App() {
       setUploadStatus('Upload failed. Ensure backend is running.');
       setTimeout(() => setUploadStatus(null), 5000);
     }
+    
+    // clear input
+    e.target.value = null;
   };
 
   return (
@@ -178,15 +232,30 @@ function App() {
                 <line x1="12" y1="3" x2="12" y2="15"></line>
               </svg>
               Upload List
-              <input type="file" accept=".txt,.json" style={{ display: 'none' }} onChange={handleFileUpload} />
+              <input type="file" accept=".txt,.json,.xml" style={{ display: 'none' }} onChange={handleFileUpload} />
             </label>
           </div>
         </div>
       </header>
       
-      {uploadStatus && (
+      {uploadStatus && !importProgress && (
         <div style={{ textAlign: 'center', background: uploadStatus.includes('Error') || uploadStatus.includes('failed') ? '#ef4444' : '#10b981', color: 'white', padding: '0.75rem', margin: '1rem', borderRadius: '8px' }}>
           {uploadStatus}
+        </div>
+      )}
+
+      {importProgress && (
+        <div style={{ margin: '1rem', padding: '1rem', background: '#1f2937', borderRadius: '8px', border: '1px solid #374151' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
+            <span style={{ fontWeight: 'bold', color: '#e5e7eb' }}>Importing Anime...</span>
+            <span style={{ color: '#9ca3af' }}>{importProgress.current} / {importProgress.total} ({(importProgress.current / (importProgress.total || 1) * 100).toFixed(1)}%)</span>
+          </div>
+          <div style={{ width: '100%', height: '8px', background: '#374151', borderRadius: '4px', overflow: 'hidden' }}>
+            <div style={{ height: '100%', width: `${(importProgress.current / (importProgress.total || 1)) * 100}%`, background: '#3b82f6', transition: 'width 0.3s ease' }}></div>
+          </div>
+          <div style={{ marginTop: '0.5rem', fontSize: '0.8rem', color: '#9ca3af', height: '20px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {importProgress.log && importProgress.log.length > 0 ? importProgress.log[importProgress.log.length - 1] : 'Initializing...'}
+          </div>
         </div>
       )}
       
@@ -220,6 +289,46 @@ function App() {
 
         {!loading && !error && items.length > 0 && (
           <section className="category-content">
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '1rem', marginBottom: '1.5rem', flexWrap: 'wrap' }}>
+              <select 
+                value={filterType} 
+                onChange={e => setFilterType(e.target.value)}
+                style={{ padding: '0.5rem', borderRadius: '8px', background: '#222', color: 'white', border: '1px solid #333' }}
+              >
+                <option value="">All Types</option>
+                <option value="TV">TV</option>
+                <option value="Movie">Movie</option>
+                <option value="OVA">OVA</option>
+                <option value="Special">Special</option>
+                <option value="ONA">ONA</option>
+                <option value="Music">Music</option>
+              </select>
+
+              <select 
+                value={filterScore} 
+                onChange={e => setFilterScore(e.target.value)}
+                style={{ padding: '0.5rem', borderRadius: '8px', background: '#222', color: 'white', border: '1px solid #333' }}
+              >
+                <option value="">All Scores</option>
+                <option value="9">9+ (Masterpiece)</option>
+                <option value="8">8+ (Great)</option>
+                <option value="7">7+ (Good)</option>
+                <option value="6">6+ (Fine)</option>
+              </select>
+
+              <select 
+                value={sortBy} 
+                onChange={e => setSortBy(e.target.value)}
+                style={{ padding: '0.5rem', borderRadius: '8px', background: '#222', color: 'white', border: '1px solid #333' }}
+              >
+                <option value="-updated_at">Recently Updated</option>
+                <option value="-score">Highest Score</option>
+                <option value="-personal_rating">Highest Rating</option>
+                <option value="-year">Newest Release</option>
+                <option value="title">Title (A-Z)</option>
+              </select>
+            </div>
+            
             <AnimeGrid items={items} onUpdateCategory={updateCategory} onUpdateRating={updateRating} categories={CATEGORIES} />
             
             {/* Numbered Pagination */}

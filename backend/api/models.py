@@ -8,6 +8,7 @@ class Anime(models.Model):
     
     # Optional fields from Jikan API
     image_url = models.URLField(max_length=500, blank=True, null=True)
+    image_base64 = models.TextField(blank=True, null=True)
     score = models.FloatField(blank=True, null=True)
     year = models.IntegerField(blank=True, null=True)
     type = models.CharField(max_length=50, blank=True, null=True)

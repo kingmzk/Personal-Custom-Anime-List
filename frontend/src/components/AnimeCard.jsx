@@ -48,8 +48,8 @@ export function AnimeCard({ item, onUpdateCategory, onUpdateRating, categories }
   return (
     <div className="anime-card">
       <div className="card-image-wrapper">
-        {item.image_url ? (
-          <img src={item.image_url} alt={item.title} className="card-image" loading="lazy" />
+        {(item.image_base64 || item.image_url) ? (
+          <img src={item.image_base64 || item.image_url} alt={item.title} className="card-image" loading="lazy" />
         ) : (
           <div className="card-image-placeholder">
             <svg viewBox="0 0 100 130" xmlns="http://www.w3.org/2000/svg" width="60">
