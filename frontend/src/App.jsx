@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { AnimeGrid } from './components/AnimeGrid';
 import { AddFromMalModal } from './components/AddFromMalModal';
+import { API_BASE_URL } from './config';
 
 const CATEGORIES = ['Watching', 'Plan to watch', 'On-Hold', 'Dropped', 'Completed', 'New Anime to Watch Personal', 'Upcoming Planned Anime'];
 
@@ -21,16 +22,18 @@ function App() {
   const [filterScore, setFilterScore] = useState("");
   const [reloadTrigger, setReloadTrigger] = useState(0);
   const [deleteConfirmItem, setDeleteConfirmItem] = useState(null);
+  const [isImportRunning, setIsImportRunning] = useState(true);
 
   const PAGE_SIZE = 20;
   const totalPages = Math.ceil(totalCount / PAGE_SIZE);
 
   // Poll for import status
   useEffect(() => {
+    if (!isImportRunning) return;
     let intervalId;
     const checkStatus = async () => {
       try {
-        const response = await fetch('http://localhost:8000/api/animes/import_status/');
+        const response = await fetch(`${API_BASE_URL}/api/animes/import_status/`);
         if (response.ok) {
           const data = await response.json();
           if (data.status === 'running') {
@@ -39,31 +42,35 @@ function App() {
               current: data.current,
               log: data.log
             });
-            setUploadStatus(null); // Clear static message while running
-          } else if (data.status === 'done' || data.status === 'error') {
-            if (importProgress) {
-              setImportProgress(null);
-              if (data.status === 'done') {
-                setUploadStatus('Import complete!');
-                setTimeout(() => setUploadStatus(null), 5000);
-                // Trigger reload
-                setReloadTrigger(prev => prev + 1);
-              } else {
-                setUploadStatus('Import failed or encountered an error.');
-                setTimeout(() => setUploadStatus(null), 5000);
+            setUploadStatus(null);
+          } else {
+            setIsImportRunning(false);
+            if (data.status === 'done' || data.status === 'error') {
+              if (importProgress) {
+                setImportProgress(null);
+                if (data.status === 'done') {
+                  setUploadStatus('Import complete!');
+                  setTimeout(() => setUploadStatus(null), 5000);
+                  setReloadTrigger(prev => prev + 1);
+                } else {
+                  setUploadStatus('Import failed or encountered an error.');
+                  setTimeout(() => setUploadStatus(null), 5000);
+                }
               }
             }
           }
+        } else {
+            setIsImportRunning(false);
         }
       } catch (e) {
-        // ignore errors if backend is down
+        setIsImportRunning(false);
       }
     };
 
     checkStatus();
     intervalId = setInterval(checkStatus, 1500);
     return () => clearInterval(intervalId);
-  }, [importProgress]);
+  }, [importProgress, isImportRunning]);
 
   // Reset page to 1 when category changes
   useEffect(() => {
@@ -75,7 +82,7 @@ function App() {
       try {
         setLoading(true);
         setError(null);
-        let url = `http://localhost:8000/api/animes/?category=${encodeURIComponent(activeCategory)}&page=${currentPage}&ordering=${sortBy}`;
+        let url = `${API_BASE_URL}/api/animes/?category=${encodeURIComponent(activeCategory)}&page=${currentPage}&ordering=${sortBy}`;
         if (searchQuery) {
           url += `&search=${encodeURIComponent(searchQuery)}`;
         }
@@ -94,7 +101,7 @@ function App() {
         setTotalCount(data.count);
       } catch (err) {
         console.error(err);
-        setError('Failed to load anime list. Ensure Django backend is running.');
+        setError('Failed to load anime list. Ensure backend is running.');
       } finally {
         setLoading(false);
       }
@@ -111,7 +118,7 @@ function App() {
 
   const updateCategory = async (id, newCategory) => {
     try {
-      const response = await fetch(`http://localhost:8000/api/animes/${id}/`, {
+      const response = await fetch(`${API_BASE_URL}/api/animes/${id}/`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
@@ -128,7 +135,7 @@ function App() {
 
   const updateRating = async (id, rating) => {
     try {
-      await fetch(`http://localhost:8000/api/animes/${id}/`, {
+      await fetch(`${API_BASE_URL}/api/animes/${id}/`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ personal_rating: rating }),
@@ -136,6 +143,22 @@ function App() {
       setItems(items.map(item => item.id === id ? { ...item, personal_rating: rating } : item));
     } catch (err) {
       console.error('Failed to update rating', err);
+    }
+  };
+
+
+  const updateWatchedDate = async (id, dateStr) => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/animes/${id}/`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ watched_date: dateStr }),
+      });
+      if (response.ok) {
+        setItems(items.map(item => item.id === id ? { ...item, watched_date: dateStr } : item));
+      }
+    } catch (err) {
+      console.error('Failed to update watched date', err);
     }
   };
 
@@ -154,7 +177,7 @@ function App() {
   const confirmDeleteAnime = async () => {
     if (!deleteConfirmItem) return;
     try {
-      const response = await fetch(`http://localhost:8000/api/animes/${deleteConfirmItem.id}/`, {
+      const response = await fetch(`${API_BASE_URL}/api/animes/${deleteConfirmItem.id}/`, {
         method: 'DELETE',
       });
       if (response.ok) {
@@ -199,13 +222,14 @@ function App() {
     formData.append('file', file);
 
     try {
-      const response = await fetch('http://localhost:8000/api/animes/upload_list/', {
+      const response = await fetch(`${API_BASE_URL}/api/animes/upload_list/`, {
         method: 'POST',
         body: formData,
       });
       const data = await response.json();
       if (response.ok) {
         setUploadStatus('Upload successful. Starting processing...');
+        setIsImportRunning(true);
         // The background polling will take over here
       } else {
         setUploadStatus('Error: ' + data.error);
@@ -225,7 +249,7 @@ function App() {
       <header className="app-header">
         <div className="header-content" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
           <div>
-            <h1>MZK-LIST<span>.</span></h1>
+            <h1 onClick={() => window.location.reload()} style={{cursor: 'pointer'}}>MZK-LIST<span>.</span></h1>
             <p>Your Personal Anime Collection</p>
           </div>
           <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
@@ -291,7 +315,7 @@ function App() {
             <button
               key={category}
               className={`tab-button ${activeCategory === category ? 'active' : ''}`}
-              onClick={() => setActiveCategory(category)}
+              onClick={() => { setActiveCategory(category); setSearchQuery(''); setSearchInput(''); }}
             >
               {category}
               {activeCategory === category && totalCount > 0 && (
@@ -303,59 +327,84 @@ function App() {
         
         {loading && <div className="loading-spinner">Loading {activeCategory} list...</div>}
         {error && <div className="error-message">{error}</div>}
+        {!loading && !error && (
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '1rem', marginBottom: '1.5rem', flexWrap: 'wrap' }}>
+            <select 
+              value={filterType} 
+              onChange={e => setFilterType(e.target.value)}
+              style={{ padding: '0.5rem', borderRadius: '8px', background: '#222', color: 'white', border: '1px solid #333' }}
+            >
+              <option value="">All Types</option>
+              <option value="TV">TV</option>
+              <option value="Movie">Movie</option>
+              <option value="OVA">OVA</option>
+              <option value="Special">Special</option>
+              <option value="ONA">ONA</option>
+              <option value="Music">Music</option>
+            </select>
+
+            <select 
+              value={filterScore} 
+              onChange={e => setFilterScore(e.target.value)}
+              style={{ padding: '0.5rem', borderRadius: '8px', background: '#222', color: 'white', border: '1px solid #333' }}
+            >
+              <option value="">All Scores</option>
+              <option value="9">9+ (Masterpiece)</option>
+              <option value="8">8+ (Great)</option>
+              <option value="7">7+ (Good)</option>
+              <option value="6">6+ (Fine)</option>
+            </select>
+
+            <select 
+              value={sortBy} 
+              onChange={e => setSortBy(e.target.value)}
+              style={{ padding: '0.5rem', borderRadius: '8px', background: '#222', color: 'white', border: '1px solid #333' }}
+            >
+              <option value="-updated_at">Recently Updated</option>
+              <option value="-score">Highest Score</option>
+              <option value="-personal_rating">Highest Rating</option>
+              <option value="-year">Newest Release</option>
+              <option value="title">Title (A-Z)</option>
+            </select>
+          </div>
+        )}
         
         {!loading && !error && items.length === 0 && (
           <div className="empty-state">
             <p>No anime found in this category.</p>
-            <p style={{fontSize: '0.9rem', marginTop: '1rem', color: '#9ca3af'}}>
-              If the database is empty, wait for the background population script to finish.
-            </p>
+            {searchQuery || filterType || filterScore ? (
+              <button 
+                onClick={() => {
+                  setSearchQuery('');
+                  setSearchInput('');
+                  setFilterType('');
+                  setFilterScore('');
+                }}
+                className="tab-button"
+                style={{ 
+                  marginTop: '2rem', 
+                  background: 'var(--accent-color)', 
+                  color: 'white', 
+                  borderColor: 'var(--accent-hover)',
+                  display: 'inline-flex',
+                  justifyContent: 'center',
+                  marginLeft: 'auto',
+                  marginRight: 'auto'
+                }}
+              >
+                Clear Active Filters & Search
+              </button>
+            ) : (
+              <p style={{fontSize: '0.9rem', marginTop: '1rem', color: '#9ca3af'}}>
+                If the database is empty, wait for the background population script to finish.
+              </p>
+            )}
           </div>
         )}
 
         {!loading && !error && items.length > 0 && (
           <section className="category-content">
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '1rem', marginBottom: '1.5rem', flexWrap: 'wrap' }}>
-              <select 
-                value={filterType} 
-                onChange={e => setFilterType(e.target.value)}
-                style={{ padding: '0.5rem', borderRadius: '8px', background: '#222', color: 'white', border: '1px solid #333' }}
-              >
-                <option value="">All Types</option>
-                <option value="TV">TV</option>
-                <option value="Movie">Movie</option>
-                <option value="OVA">OVA</option>
-                <option value="Special">Special</option>
-                <option value="ONA">ONA</option>
-                <option value="Music">Music</option>
-              </select>
-
-              <select 
-                value={filterScore} 
-                onChange={e => setFilterScore(e.target.value)}
-                style={{ padding: '0.5rem', borderRadius: '8px', background: '#222', color: 'white', border: '1px solid #333' }}
-              >
-                <option value="">All Scores</option>
-                <option value="9">9+ (Masterpiece)</option>
-                <option value="8">8+ (Great)</option>
-                <option value="7">7+ (Good)</option>
-                <option value="6">6+ (Fine)</option>
-              </select>
-
-              <select 
-                value={sortBy} 
-                onChange={e => setSortBy(e.target.value)}
-                style={{ padding: '0.5rem', borderRadius: '8px', background: '#222', color: 'white', border: '1px solid #333' }}
-              >
-                <option value="-updated_at">Recently Updated</option>
-                <option value="-score">Highest Score</option>
-                <option value="-personal_rating">Highest Rating</option>
-                <option value="-year">Newest Release</option>
-                <option value="title">Title (A-Z)</option>
-              </select>
-            </div>
-            
-            <AnimeGrid items={items} onUpdateCategory={updateCategory} onUpdateRating={updateRating} onDelete={requestDeleteAnime} categories={CATEGORIES} />
+            <AnimeGrid items={items} onUpdateCategory={updateCategory} onUpdateRating={updateRating} onUpdateWatchedDate={updateWatchedDate} onDelete={requestDeleteAnime} categories={CATEGORIES} />
             
             {/* Numbered Pagination */}
             {totalPages > 1 && (

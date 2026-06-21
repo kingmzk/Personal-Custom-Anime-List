@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 
-export function AnimeCard({ item, onUpdateCategory, onUpdateRating, onDelete, categories }) {
+export function AnimeCard({ item, onUpdateCategory, onUpdateRating, onUpdateWatchedDate, onDelete, categories }) {
   const [ratingOpen, setRatingOpen] = useState(false);
   const [inputVal, setInputVal] = useState('');
   const popoverRef = useRef(null);
@@ -140,7 +140,8 @@ export function AnimeCard({ item, onUpdateCategory, onUpdateRating, onDelete, ca
             )}
           </div>
 
-          <div style={{ display: 'flex', gap: '0.5rem', width: '100%' }}>
+
+          <div style={{ display: 'flex', gap: '0.5rem', width: '100%', alignItems: 'center' }}>
             <select
               value={item.category}
               onClick={(e) => e.stopPropagation()}
@@ -152,6 +153,68 @@ export function AnimeCard({ item, onUpdateCategory, onUpdateRating, onDelete, ca
                 <option key={cat} value={cat}>{cat}</option>
               ))}
             </select>
+            
+            {item.category === 'Completed' && (
+              <div className="watched-date-wrapper" style={{ position: 'relative', display: 'inline-flex' }}>
+                <button
+                  type="button"
+                  title={item.watched_date ? `Watched on: ${item.watched_date}` : 'Set Watched Date'}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    const inputEl = e.currentTarget.nextElementSibling;
+                    if (inputEl) {
+                      try {
+                        inputEl.showPicker();
+                      } catch (err) {
+                        inputEl.focus();
+                      }
+                    }
+                  }}
+                  style={{
+                    background: item.watched_date ? '#4f46e5' : '#374151',
+                    border: '1px solid #4b5563',
+                    borderRadius: '4px',
+                    padding: '0.5rem',
+                    color: 'white',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    transition: 'all 0.2s ease',
+                    minWidth: '32px',
+                    height: '32px',
+                  }}
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+                    <line x1="16" y1="2" x2="16" y2="6"></line>
+                    <line x1="8" y1="2" x2="8" y2="6"></line>
+                    <line x1="3" y1="10" x2="21" y2="10"></line>
+                  </svg>
+                  {item.watched_date && (
+                    <span style={{ fontSize: '0.75rem', marginLeft: '0.35rem', fontWeight: 'bold' }}>
+                      {item.watched_date.substring(5)} {/* Show mm-dd for compactness */}
+                    </span>
+                  )}
+                </button>
+                <input 
+                  type="date" 
+                  value={item.watched_date || ''} 
+                  onClick={(e) => e.stopPropagation()}
+                  onChange={(e) => { e.stopPropagation(); onUpdateWatchedDate(item.id, e.target.value); }} 
+                  style={{
+                    position: 'absolute',
+                    top: 0,
+                    left: 0,
+                    width: '100%',
+                    height: '100%',
+                    opacity: 0,
+                    pointerEvents: 'none',
+                  }}
+                />
+              </div>
+            )}
+
             
             <button 
               className="delete-btn" 

@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { API_BASE_URL } from '../config';
 
 // Normalize a Jikan result into a common format
 function normalizeJikan(anime) {
@@ -106,7 +107,7 @@ export function AddFromMalModal({ isOpen, onClose, categories, onAddSuccess }) {
         synopsis: anime.synopsis
       };
 
-      const res = await fetch('http://localhost:8000/api/animes/add_from_mal/', {
+      const res = await fetch(`${API_BASE_URL}/api/animes/add_from_mal/`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)

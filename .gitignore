@@ -55,3 +55,15 @@ build/
 # Misc
 .cache/
 *.log
+
+# Java/Maven
+**/target/
+*.class
+*.jar
+*.war
+
+# .NET
+**/bin/
+**/obj/
+*.suo
+*.user
